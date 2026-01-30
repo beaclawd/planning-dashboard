@@ -17,12 +17,6 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // Experimental features for better ISR support
-  experimental: {
-    // Enable incremental cache handling
-    incrementalCacheHandlerPath: undefined,
-  },
-
   // Runtime configuration
   env: {
     PLANNING_DIR: process.env.PLANNING_DIR,

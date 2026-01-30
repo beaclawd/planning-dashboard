@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Task } from '@/lib/types';
+import { Task, Output } from '@/lib/types';
 import { ProgressBar } from '@/components/progress-bar';
 import { OutputsViewer } from '@/components/outputs-viewer';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ export default function TaskDetailPage() {
   const projectSlug = params.slug as string;
   const taskId = params.taskId as string;
   const [task, setTask] = useState<Task | null>(null);
+  const [outputs, setOutputs] = useState<Output[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +33,13 @@ export default function TaskDetailPage() {
           throw new Error('Task not found');
         }
         setTask(foundTask);
+
+        // Fetch outputs for this task
+        const outputsResponse = await fetch(`/api/outputs?project=${projectSlug}&task=${taskId}`);
+        if (outputsResponse.ok) {
+          const outputsData = await outputsResponse.json();
+          setOutputs(outputsData);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
@@ -204,7 +212,7 @@ export default function TaskDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <OutputsViewer projectId={projectSlug} taskId={taskId} />
+            <OutputsViewer outputs={outputs} taskId={taskId} />
           </CardContent>
         </Card>
       </div>
