@@ -9,13 +9,8 @@ export async function GET(request: NextRequest) {
     const stakeholder = searchParams.get('stakeholder');
     const planner = searchParams.get('planner');
 
-    // Build filter object
-    const filter: {
-      status?: string;
-      priority?: string;
-      stakeholder?: string;
-      planner?: string;
-    } = {};
+    // Build filter object (type assertion for MongoDB query)
+    const filter: Record<string, string> = {};
 
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
@@ -23,7 +18,7 @@ export async function GET(request: NextRequest) {
     if (planner) filter.planner = planner;
 
     // Query MongoDB
-    const projects = await getProjects(filter);
+    const projects = await getProjects(filter as any);
 
     console.log(`Returning ${projects.length} projects (filtered: status=${!!status}, priority=${!!priority})`);
     return NextResponse.json(projects);

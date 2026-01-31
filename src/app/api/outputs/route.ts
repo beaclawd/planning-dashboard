@@ -7,17 +7,14 @@ export async function GET(request: NextRequest) {
     const project = searchParams.get('project');
     const task = searchParams.get('task');
 
-    // Build filter object
-    const filter: {
-      project?: string;
-      task?: string;
-    } = {};
+    // Build filter object (type assertion for MongoDB query)
+    const filter: Record<string, string> = {};
 
     if (project) filter.project = project;
     if (task) filter.task = task;
 
     // Query MongoDB
-    const outputs = await getOutputs(filter);
+    const outputs = await getOutputs(filter as any);
 
     console.log(`Returning ${outputs.length} outputs (filtered: project=${!!project}, task=${!!task})`);
     return NextResponse.json(outputs);

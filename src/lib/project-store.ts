@@ -201,7 +201,7 @@ export async function getProjects(filter?: {
   try {
     const query = filter || {};
     const projects = await projectsCollection
-      .find(query)
+      .find(query as any)
       .sort({ lastUpdated: -1 })
       .toArray();
     return projects;
@@ -345,7 +345,7 @@ export async function getTasks(filter?: {
   try {
     const query = filter || {};
     const tasks = await tasksCollection
-      .find(query)
+      .find(query as any)
       .sort({ updated: -1 })
       .toArray();
     return tasks;
@@ -487,7 +487,7 @@ export async function getOutputs(filter?: {
   try {
     const query = filter || {};
     const outputs = await outputsCollection
-      .find(query)
+      .find(query as any)
       .sort({ lastModified: -1 })
       .toArray();
     return outputs;
