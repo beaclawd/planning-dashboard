@@ -41,7 +41,21 @@ export async function connect(): Promise<Db> {
 
   try {
     console.log('Connecting to MongoDB...');
-    client = new MongoClient(MONGO_URL);
+
+    // Parse connection string to add query params if not present
+    let connectionString = MONGO_URL;
+    if (!connectionString.includes('retryWrites=true')) {
+      const separator = connectionString.includes('?') ? '&' : '?';
+      connectionString += `${separator}retryWrites=true&w=majority`;
+    }
+
+    client = new MongoClient(connectionString, {
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+    });
     await client.connect();
     db = client.db(DB_NAME);
     projectsCollection = db.collection<Project>(PROJECTS_COLLECTION);
@@ -71,6 +85,7 @@ export async function connect(): Promise<Db> {
     return db;
   } catch (error) {
     console.error('MongoDB connection error:', error);
+    console.error('Connection string (masked):', MONGO_URL.replace(/:[^:@]+@/, ':****@'));
     client = null;
     db = null;
     projectsCollection = null;
