@@ -1,21 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cache } from '@/lib/cache';
-import { parseAllData } from '@/lib/parser';
+import { getProjects } from '@/lib/project-store';
 
 export async function GET(request: NextRequest) {
   try {
-    // Try to get from cache first
-    const cached = cache.get();
-    if (cached) {
-      return NextResponse.json(cached.projects);
-    }
+    const searchParams = request.nextUrl.searchParams;
+    const status = searchParams.get('status');
+    const priority = searchParams.get('priority');
+    const stakeholder = searchParams.get('stakeholder');
+    const planner = searchParams.get('planner');
 
-    // Parse data from files
-    const { projects, tasks, outputs } = parseAllData();
+    // Build filter object
+    const filter: {
+      status?: string;
+      priority?: string;
+      stakeholder?: string;
+      planner?: string;
+    } = {};
 
-    // Update cache
-    cache.set({ projects, tasks, outputs, lastSync: new Date().toISOString() });
+    if (status) filter.status = status;
+    if (priority) filter.priority = priority;
+    if (stakeholder) filter.stakeholder = stakeholder;
+    if (planner) filter.planner = planner;
 
+    // Query MongoDB
+    const projects = await getProjects(filter);
+
+    console.log(`Returning ${projects.length} projects (filtered: status=${!!status}, priority=${!!priority})`);
     return NextResponse.json(projects);
   } catch (error) {
     console.error('Error fetching projects:', error);

@@ -44,6 +44,7 @@ export interface Output {
   content?: string;
   path: string;
   lastModified: string;
+  outputType?: string;
 }
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'blocked';

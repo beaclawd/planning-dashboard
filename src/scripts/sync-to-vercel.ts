@@ -1,50 +1,55 @@
-#!/usr/bin/env tsx
-// Sync script - Scan planning folder and POST data to Vercel webhook
+// Sync Script - Parse planning data and sync to MongoDB
+//
+// This script:
+// 1. Scans the planning directory for markdown files
+// 2. Parses all projects, tasks, and outputs
+// 3. Writes all data to MongoDB as the single source of truth
+// 4. Vercel API routes then read from MongoDB
 
+import dotenv from 'dotenv';
 import { parseAllData } from '../lib/parser';
+import { syncAll, disconnect, getAllStats, healthCheck } from '../lib/project-store';
 
-const WEBHOOK_URL = process.env.VERCEL_WEBHOOK_URL || 'http://localhost:3000/api/webhook/sync';
+// Load environment variables
+dotenv.config({ path: '.env.local' });
 
-async function syncToVercel() {
+// Check for --prod flag (legacy, now just for logging)
+const isProd = process.argv.includes('--prod');
+
+async function syncToMongoDB() {
   try {
-    console.log('🔍 Scanning planning directory...');
+    const target = isProd ? 'Production (MongoDB)' : 'Local (MongoDB)';
+    console.log(`🔍 Starting sync to MongoDB... [${target}]`);
+
+    // Check MongoDB health
+    console.log('🏥 Checking MongoDB connection...');
+    const health = await healthCheck();
+    if (!health.connected) {
+      throw new Error(`MongoDB connection failed: ${health.message}`);
+    }
+    console.log(`✅ MongoDB connected: ${health.message}`);
 
     // Parse all data from files
+    console.log('📂 Parsing markdown files...');
     const { projects, tasks, outputs } = parseAllData();
 
     console.log(`✅ Found ${projects.length} projects, ${tasks.length} tasks, ${outputs.length} outputs`);
 
-    // Prepare sync payload
-    const payload = {
-      projects,
-      tasks,
-      outputs,
-      lastSync: new Date().toISOString(),
-    };
+    // Sync all data to MongoDB
+    console.log('📤 Syncing data to MongoDB...');
+    await syncAll({ projects, tasks, outputs });
 
-    console.log(`📤 Posting to webhook: ${WEBHOOK_URL}`);
-
-    // POST to webhook
-    const response = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Webhook request failed: ${response.status} ${errorText}`);
-    }
-
-    const result = await response.json();
-
+    // Get statistics to verify sync
+    const stats = await getAllStats();
     console.log('✅ Sync successful!');
-    console.log('Response:', result);
-    console.log(`   - ${result.stats.projects} projects`);
-    console.log(`   - ${result.stats.tasks} tasks`);
-    console.log(`   - ${result.stats.outputs} outputs`);
+    console.log('MongoDB statistics:');
+    console.log(`   - ${stats.projects} projects`);
+    console.log(`   - ${stats.tasks} tasks`);
+    console.log(`   - ${stats.outputs} outputs`);
+
+    // Close connection
+    await disconnect();
+    console.log('👋 MongoDB connection closed');
 
   } catch (error) {
     console.error('❌ Sync failed:', error instanceof Error ? error.message : error);
@@ -53,4 +58,4 @@ async function syncToVercel() {
 }
 
 // Run sync
-syncToVercel();
+syncToMongoDB();

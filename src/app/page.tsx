@@ -30,7 +30,7 @@ export default function Home() {
       setProjects(data);
       setFilteredProjects(data);
 
-      // Try to get last sync time from webhook status
+      // Try to get last sync time from MongoDB status
       try {
         const statusResponse = await fetch('/api/webhook/sync');
         if (statusResponse.ok) {

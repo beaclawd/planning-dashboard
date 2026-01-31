@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cache } from '@/lib/cache';
-import { parseAllData } from '@/lib/parser';
+import { getTasks } from '@/lib/project-store';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,31 +7,25 @@ export async function GET(request: NextRequest) {
     const project = searchParams.get('project');
     const status = searchParams.get('status');
     const owner = searchParams.get('owner');
+    const priority = searchParams.get('priority');
 
-    // Try to get from cache first
-    let cached = cache.get();
-    if (!cached) {
-      // Parse data from files
-      const { projects, tasks, outputs } = parseAllData();
-      cache.set({ projects, tasks, outputs, lastSync: new Date().toISOString() });
-      cached = cache.get()!;
-    }
+    // Build filter object
+    const filter: {
+      project?: string;
+      status?: string;
+      owner?: string;
+      priority?: string;
+    } = {};
 
-    // Filter tasks
-    let tasks = cached.tasks;
+    if (project) filter.project = project;
+    if (status) filter.status = status;
+    if (owner) filter.owner = owner;
+    if (priority) filter.priority = priority;
 
-    if (project) {
-      tasks = tasks.filter(t => t.project === project);
-    }
+    // Query MongoDB
+    const tasks = await getTasks(filter);
 
-    if (status) {
-      tasks = tasks.filter(t => t.status === status);
-    }
-
-    if (owner) {
-      tasks = tasks.filter(t => t.owner.toLowerCase().includes(owner.toLowerCase()));
-    }
-
+    console.log(`Returning ${tasks.length} tasks (filtered: project=${!!project}, status=${!!status}, owner=${!!owner})`);
     return NextResponse.json(tasks);
   } catch (error) {
     console.error('Error fetching tasks:', error);

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cache } from '@/lib/cache';
-import { parseAllData } from '@/lib/parser';
+import { getOutputs } from '@/lib/project-store';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,26 +7,19 @@ export async function GET(request: NextRequest) {
     const project = searchParams.get('project');
     const task = searchParams.get('task');
 
-    // Try to get from cache first
-    let cached = cache.get();
-    if (!cached) {
-      // Parse data from files
-      const { projects, tasks, outputs } = parseAllData();
-      cache.set({ projects, tasks, outputs, lastSync: new Date().toISOString() });
-      cached = cache.get()!;
-    }
+    // Build filter object
+    const filter: {
+      project?: string;
+      task?: string;
+    } = {};
 
-    // Filter outputs
-    let outputs = cached.outputs;
+    if (project) filter.project = project;
+    if (task) filter.task = task;
 
-    if (project) {
-      outputs = outputs.filter(o => o.project === project);
-    }
+    // Query MongoDB
+    const outputs = await getOutputs(filter);
 
-    if (task) {
-      outputs = outputs.filter(o => o.task === task);
-    }
-
+    console.log(`Returning ${outputs.length} outputs (filtered: project=${!!project}, task=${!!task})`);
     return NextResponse.json(outputs);
   } catch (error) {
     console.error('Error fetching outputs:', error);

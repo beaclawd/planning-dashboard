@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cache } from '@/lib/cache';
 import { parseAllData } from '@/lib/parser';
+import { syncAll, disconnect, getAllStats, healthCheck } from '@/lib/project-store';
 
 /**
- * Cron job endpoint for polling fallback
- * Runs every 5 minutes to check for updates
+ * Cron job endpoint for automatic sync
+ * Runs every 5 minutes to sync local files to MongoDB
  */
 export async function GET(request: NextRequest) {
   // Verify this is a cron job (Vercel Cron Jobs header)
@@ -16,47 +16,39 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Parse data from files (in production, this would come from a database or external API)
-    // For now, we'll just check if cache is stale and refresh it
-    const isStale = !cache.isValid();
-    const cacheAge = cache.getAge();
+    console.log('Cron sync triggered - syncing to MongoDB');
 
-    if (isStale) {
-      console.log('Cache is stale, refreshing...');
+    // Parse fresh data from local files
+    const { projects, tasks, outputs } = parseAllData();
 
-      // Parse fresh data (in production, this would fetch from sync source)
-      const { projects, tasks, outputs } = parseAllData();
+    // Sync to MongoDB
+    await syncAll({ projects, tasks, outputs });
 
-      cache.set({
-        projects,
-        tasks,
-        outputs,
-        lastSync: new Date().toISOString(),
-      });
+    // Get statistics from MongoDB to verify
+    const stats = await getAllStats();
 
-      return NextResponse.json({
-        success: true,
-        action: 'cache_refreshed',
-        timestamp: new Date().toISOString(),
-        stats: {
-          projects: projects.length,
-          tasks: tasks.length,
-          outputs: outputs.length,
-        },
-      });
-    }
+    // Check MongoDB health
+    const health = await healthCheck();
+
+    // Close connection
+    await disconnect();
 
     return NextResponse.json({
       success: true,
-      action: 'cache_ok',
+      action: 'mongo_synced',
+      message: health.message,
       timestamp: new Date().toISOString(),
-      cacheAge,
+      stats: {
+        projects: stats.projects,
+        tasks: stats.tasks,
+        outputs: stats.outputs,
+      },
     });
   } catch (error) {
     console.error('Error in cron sync:', error);
     return NextResponse.json(
       {
-        error: 'Failed to sync',
+        error: 'Failed to sync to MongoDB',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }

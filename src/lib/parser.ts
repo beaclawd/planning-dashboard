@@ -3,16 +3,55 @@
 import matter from 'gray-matter';
 import fs from 'fs';
 import path from 'path';
-import { Project, Task, Output, ParsedFrontmatter } from './types';
+import { Project, Task, Output, ParsedFrontmatter, TaskStatus } from './types';
 
 const PLANNING_DIR = process.env.PLANNING_DIR || '/home/bean/Development/planning';
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 /**
- * Scan all project-* directories in the planning folder
+ * Parse meta section from markdown content
+ */
+function parseMetaSection(content: string): ParsedFrontmatter {
+  const meta: ParsedFrontmatter = {};
+
+  // Extract Meta section
+  const metaMatch = content.match(/## Meta\s*\n([\s\S]*?)(?=\n##|$)/);
+  if (!metaMatch) {
+    return meta;
+  }
+
+  const metaLines = metaMatch[1].split('\n');
+
+  for (const line of metaLines) {
+    const match = line.match(/^\s*-\s*([^:]+):\s*(.*)$/);
+    if (match) {
+      const key = match[1].trim();
+      const value = match[2].trim();
+
+      // Convert key to camelCase
+      const camelKey = key
+        .toLowerCase()
+        .replace(/[^a-z0-9]+(.)/g, (_, char) => char.toUpperCase());
+
+      // Handle empty values
+      if (value === '-' || value === '') {
+        meta[camelKey] = undefined;
+      } else {
+        meta[camelKey] = value;
+      }
+    }
+  }
+
+  return meta;
+}
+
+/**
+ * Scan all project-* directories in planning folder
  */
 export function scanProjects(): string[] {
   if (!fs.existsSync(PLANNING_DIR)) {
-    throw new Error(`Planning directory not found: ${PLANNING_DIR}`);
+    console.warn(`Planning directory not found: ${PLANNING_DIR}`);
+    return [];
   }
 
   const entries = fs.readdirSync(PLANNING_DIR, { withFileTypes: true });
@@ -22,33 +61,7 @@ export function scanProjects(): string[] {
 }
 
 /**
- * Parse the Meta section from markdown files (format used in this planning system)
- */
-function parseMetaSection(content: string): ParsedFrontmatter {
-  const meta: ParsedFrontmatter = {};
-
-  // Look for Meta section (## Meta to next ##)
-  const metaMatch = content.match(/## Meta\s*\n([\s\S]*?)(?=\n##|$)/);
-  if (!metaMatch) return meta;
-
-  const metaContent = metaMatch[1];
-  const lines = metaContent.split('\n').filter(line => line.trim());
-
-  for (const line of lines) {
-    const match = line.match(/^- (.*?):\s*(.*)$/);
-    if (match) {
-      const [, key, value] = match;
-      // Convert key to camelCase for consistency
-      const camelKey = key.toLowerCase().replace(/-(.)/g, (_, c) => c.toUpperCase());
-      meta[camelKey] = value.trim();
-    }
-  }
-
-  return meta;
-}
-
-/**
- * Parse project overview file
+ * Parse the OVERVIEW file
  */
 export function parseProject(projectPath: string): Project | null {
   const overviewPath = path.join(projectPath, '00-OVERVIEW.md');
@@ -61,7 +74,7 @@ export function parseProject(projectPath: string): Project | null {
   const content = fs.readFileSync(overviewPath, 'utf-8');
   const slug = path.basename(projectPath);
 
-  // Extract title from the file
+  // Extract title from file
   const titleMatch = content.match(/^# .*?: (.*)$/m);
   const title = titleMatch ? titleMatch[1] : slug.replace('project-', '').replace(/-/g, ' ');
 
@@ -70,34 +83,33 @@ export function parseProject(projectPath: string): Project | null {
   const objective = objectiveMatch ? objectiveMatch[1] : 'No objective defined';
 
   // Extract success metrics
-  const metricsMatch = content.match(/^- Success metrics:?\s*([\s\S]*?)(?=- |$)/);
+  const metricsMatch = content.match(/^- Success metrics:?\s*([\s\S]*?)(?=- |$)/m);
   let successMetrics: string[] = [];
   if (metricsMatch) {
     const metricsText = metricsMatch[1];
-    successMetrics = metricsText
-      .split('\n')
+    const lines = metricsText.split('\n');
+    successMetrics = lines
       .map(line => line.trim().replace(/^-\s*/, ''))
       .filter(line => line.length > 0);
   }
 
-  // Extract target date
-  const targetDateMatch = content.match(/^- Target date\(s\):\s*(.*)$/m);
-  const targetDate = targetDateMatch ? targetDateMatch[1] : undefined;
+  // Extract meta (status, priority, etc.)
+  const meta = parseMetaSection(content);
 
-  // Get last modified time
-  const stats = fs.statSync(overviewPath);
-  const lastUpdated = stats.mtime.toISOString();
+  const lastUpdated = content.match(/- (Last|last) Updated:\s*(.*)$/m)
+    ? meta.lastUpdated || new Date().toISOString()
+    : meta.lastUpdated || new Date().toISOString();
 
   return {
     slug,
     title,
     objective,
     successMetrics,
-    status: 'active', // Default status for projects
-    priority: 'P2',
-    stakeholder: 'Bean',
-    planner: '/home/bean/agents/planner',
-    targetDate,
+    status: meta.status || 'active',
+    priority: meta.priority || 'P2',
+    stakeholder: meta.stakeholder,
+    planner: meta.planner,
+    targetDate: meta.targetDate,
     lastUpdated,
     path: overviewPath,
   };
@@ -106,148 +118,158 @@ export function parseProject(projectPath: string): Project | null {
 /**
  * Parse task file
  */
-export function parseTask(projectPath: string, taskPath: string): Task | null {
+export function parseTask(taskPath: string): Task | null {
   if (!fs.existsSync(taskPath)) {
     console.warn(`Task file not found: ${taskPath}`);
     return null;
   }
 
   const content = fs.readFileSync(taskPath, 'utf-8');
+  const match = content.match(/^# T-(\d+): (.*)$/m);
+
+  if (!match) {
+    console.warn(`Invalid task file format: ${taskPath}`);
+    return null;
+  }
+
+  const [, id, title] = match;
+  const projectPath = path.dirname(path.dirname(taskPath));
+  const project = path.basename(projectPath);
+
   const meta = parseMetaSection(content);
-
-  const taskId = path.basename(taskPath, '.md');
-  const projectSlug = path.basename(projectPath);
-
-  // Extract title from heading
-  const titleMatch = content.match(/^# .*?: (.*)$/m);
-  const title = titleMatch ? titleMatch[1] : taskId;
-
-  // Extract goal
   const goalMatch = content.match(/## Goal\s*\n([\s\S]*?)(?=\n##|$)/);
   const goal = goalMatch ? goalMatch[1].trim() : undefined;
 
-  // Extract acceptance criteria
-  const criteriaMatch = content.match(/## Acceptance Criteria[\s\S]*?([\s\S]*?)(?=\n##|$)/);
+  const criteriaMatch = content.match(/## Acceptance Criteria \(Definition of Done\)[\s\S]*?^- Acceptance Criteria:\s*\n([\s\S]*?)(?=\n##|$)/);
   let acceptanceCriteria: string[] = [];
   if (criteriaMatch) {
     const criteriaText = criteriaMatch[1];
     acceptanceCriteria = criteriaText
       .split('\n')
-      .filter(line => line.trim().startsWith('- ['))
-      .map(line => line.trim().replace(/^-\s*\[[ xX]\]\s*/, ''));
+      .map(line => line.trim().replace(/^\[-]\s*/, ''))
+      .filter(line => line.length > 0);
   }
 
-  // Extract outputs from Outputs section
-  const outputsMatch = content.match(/## Outputs[\s\S]*?([\s\S]*?)(?=\n##|$)/);
-  const outputs: Task['outputs'] = [];
-  if (outputsMatch) {
-    const outputsText = outputsMatch[1];
-    const summaryMatch = outputsText.match(/^- Summary:\s*(.*)$/m);
-    if (summaryMatch) {
-      outputs.push({
-        title: 'Summary',
-        description: summaryMatch[1].trim(),
-      });
-    }
-  }
-
-  // Get last modified time
-  const stats = fs.statSync(taskPath);
-  const lastUpdated = stats.mtime.toISOString();
+  const lastUpdated = meta.updated || new Date().toISOString();
 
   return {
-    id: taskId,
-    project: projectSlug,
+    id,
     title,
+    project,
     owner: meta.owner || 'Unassigned',
-    status: (meta.status as any) || 'todo',
+    status: (meta.status as TaskStatus) || 'todo',
     priority: meta.priority || 'P2',
     dependsOn: meta.dependsOn,
-    created: meta.created || lastUpdated,
-    updated: meta.updated || lastUpdated,
+    created: meta.created || new Date().toISOString(),
+    updated: lastUpdated,
     goal,
     acceptanceCriteria,
-    outputs,
     path: taskPath,
   };
 }
 
 /**
- * Parse output files from a project
+ * Parse output file
  */
-export function parseOutputs(projectPath: string): Output[] {
-  const outputs: Output[] = [];
-  const outputsDir = path.join(projectPath, 'outputs');
-
-  if (!fs.existsSync(outputsDir)) {
-    return outputs;
+export function parseOutput(outputPath: string): Output | null {
+  if (!fs.existsSync(outputPath)) {
+    console.warn(`Output file not found: ${outputPath}`);
+    return null;
   }
 
-  const files = fs.readdirSync(outputsDir);
-  const projectSlug = path.basename(projectPath);
+  const content = fs.readFileSync(outputPath, 'utf-8');
+  const match = content.match(/^# (.*): (.*)$/m);
 
-  for (const file of files) {
-    const filePath = path.join(outputsDir, file);
-    const stats = fs.statSync(filePath);
-
-    // Only include markdown files
-    if (file.endsWith('.md')) {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const titleMatch = content.match(/^# (.*)$/m);
-      const title = titleMatch ? titleMatch[1] : file.replace('.md', '');
-
-      // Try to extract task ID from filename (e.g., T-001.md)
-      const taskMatch = file.match(/^(T-\d+)(?:-.*)?\.md$/);
-      const taskId = taskMatch ? taskMatch[1] : undefined;
-
-      outputs.push({
-        id: `${projectSlug}-${file.replace('.md', '')}`,
-        project: projectSlug,
-        task: taskId,
-        title,
-        content: content.substring(0, 500), // Preview only
-        path: filePath,
-        lastModified: stats.mtime.toISOString(),
-      });
-    }
+  if (!match) {
+    console.warn(`Invalid output file format: ${outputPath}`);
+    return null;
   }
 
-  return outputs;
+  const [, id, title] = match;
+  const projectPath = path.dirname(path.dirname(outputPath));
+  const project = path.basename(projectPath);
+
+  const metaMatch = content.match(/^- Output Type:\s*(.*)$/m);
+  const outputType = metaMatch ? metaMatch[1] : 'unknown';
+  const taskMatch = content.match(/^- Task ID:\s*(.*)$/m);
+  const taskId = taskMatch ? taskMatch[1] : undefined;
+
+  const lastModifiedMatch = content.match(/^- (Last|last) Modified:\s*(.*)$/m);
+  const lastModified = lastModifiedMatch ? lastModifiedMatch[2] : new Date().toISOString();
+
+  return {
+    id,
+    title,
+    project,
+    task: taskId,
+    outputType,
+    content: content.substring(content.indexOf('\n\n') + 2), // Get content after metadata
+    path: outputPath,
+    lastModified,
+  };
 }
 
 /**
- * Parse all data from the planning directory
+ * Parse all data from planning directory
+ * Used by sync script to read local files and write to MongoDB
+ * In production (Vercel), returns empty arrays since files are not accessible
  */
-export function parseAllData(): { projects: Project[]; tasks: Task[]; outputs: Output[] } {
+export function parseAllData() {
+  // In production on Vercel, local files are not accessible
+  // Data is read from MongoDB instead
+  if (IS_PROD) {
+    console.log('Production mode - skipping file scan (data from MongoDB)');
+    return { projects: [], tasks: [], outputs: [] };
+  }
+
+  console.log('Development mode - scanning files from:', PLANNING_DIR);
+
+  // Scan all projects
+  const projectDirs = scanProjects();
   const projects: Project[] = [];
   const tasks: Task[] = [];
   const outputs: Output[] = [];
 
-  const projectDirs = scanProjects();
-
   for (const projectPath of projectDirs) {
-    // Parse project
     const project = parseProject(projectPath);
     if (project) {
       projects.push(project);
     }
 
-    // Parse tasks
+    // Scan tasks
     const tasksDir = path.join(projectPath, 'tasks');
     if (fs.existsSync(tasksDir)) {
-      const taskFiles = fs.readdirSync(tasksDir).filter(f => f.startsWith('T-') && f.endsWith('.md'));
+      const taskFiles = fs.readdirSync(tasksDir)
+        .filter(file => file.startsWith('T-') && file.endsWith('.md'));
+
       for (const taskFile of taskFiles) {
-        const taskPath = path.join(tasksDir, taskFile);
-        const task = parseTask(projectPath, taskPath);
+        const task = parseTask(path.join(tasksDir, taskFile));
         if (task) {
           tasks.push(task);
         }
       }
     }
 
-    // Parse outputs
-    const projectOutputs = parseOutputs(projectPath);
-    outputs.push(...projectOutputs);
+    // Scan outputs
+    const outputsDir = path.join(projectPath, 'outputs');
+    if (fs.existsSync(outputsDir)) {
+      const taskOutputDirs = fs.readdirSync(outputsDir, { withFileTypes: true })
+        .filter(entry => entry.isDirectory() && entry.name.startsWith('T-'))
+        .map(entry => entry.name);
+
+      for (const taskDir of taskOutputDirs) {
+        const taskOutputPath = path.join(outputsDir, taskDir);
+        const outputFiles = fs.readdirSync(taskOutputPath)
+          .filter(file => file.endsWith('.md'));
+
+        for (const outputFile of outputFiles) {
+          const output = parseOutput(path.join(taskOutputPath, outputFile));
+          if (output) {
+            outputs.push(output);
+          }
+        }
+      }
+    }
   }
 
   return { projects, tasks, outputs };
