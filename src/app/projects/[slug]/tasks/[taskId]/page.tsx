@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Loader2, User, Clock, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function TaskDetailPage() {
   const params = useParams();
@@ -115,13 +116,16 @@ export default function TaskDetailPage() {
     <main className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
         {/* Back Button */}
-        <Link
-          href={`/projects/${projectSlug}`}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-6"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to project
-        </Link>
+        <div className="flex items-center justify-between mb-6">
+          <Link
+            href={`/projects/${projectSlug}`}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to project
+          </Link>
+          <ThemeToggle />
+        </div>
 
         {/* Task Header */}
         <Card className="mb-6">

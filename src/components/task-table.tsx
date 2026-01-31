@@ -53,88 +53,90 @@ export function TaskTable({ tasks, projectSlug, onViewOutputs }: TaskTableProps)
   };
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[200px]">Task</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Owner</TableHead>
-            <TableHead>Priority</TableHead>
-            <TableHead className="hidden md:table-cell">Updated</TableHead>
-            {!projectSlug && <TableHead className="hidden md:table-cell">Project</TableHead>}
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {tasks.length === 0 ? (
+    <div className="rounded-md border overflow-hidden">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={projectSlug ? 6 : 7} className="text-center py-8 text-muted-foreground">
-                No tasks found
-              </TableCell>
+              <TableHead className="min-w-[200px]">Task</TableHead>
+              <TableHead className="min-w-[100px]">Status</TableHead>
+              <TableHead className="hidden sm:table-cell min-w-[100px]">Owner</TableHead>
+              <TableHead className="min-w-[60px]">Priority</TableHead>
+              <TableHead className="hidden md:table-cell min-w-[120px]">Updated</TableHead>
+              {!projectSlug && <TableHead className="hidden md:table-cell min-w-[150px]">Project</TableHead>}
+              <TableHead className="min-w-[100px]">Actions</TableHead>
             </TableRow>
-          ) : (
-            tasks.map((task) => (
-              <TableRow key={task.id} className="hover:bg-muted/50">
-                <TableCell>
-                  <div className="font-medium">{task.title}</div>
-                  {task.goal && (
-                    <div className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                      {task.goal}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={getStatusColor(task.status)}>
-                    {getStatusLabel(task.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1 text-sm">
-                    <User className="h-3 w-3 text-muted-foreground" />
-                    <span>{task.owner}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge className={getPriorityColor(task.priority)}>
-                    {task.priority}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>{new Date(task.updated).toLocaleDateString()}</span>
-                  </div>
-                </TableCell>
-                {!projectSlug && (
-                  <TableCell className="hidden md:table-cell">
-                    <Link
-                      href={`/projects/${task.project}`}
-                      className="text-primary hover:underline flex items-center gap-1 text-sm"
-                    >
-                      {task.project}
-                      <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </TableCell>
-                )}
-                <TableCell>
-                  {onViewOutputs && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onViewOutputs(task)}
-                      className="hover:bg-primary hover:text-primary-foreground"
-                    >
-                      <FileText className="h-3 w-3 mr-1" />
-                      Outputs
-                    </Button>
-                  )}
+          </TableHeader>
+          <TableBody>
+            {tasks.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  No tasks found
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              tasks.map((task) => (
+                <TableRow key={task.id} className="hover:bg-muted/50">
+                  <TableCell className="min-w-[200px]">
+                    <div className="font-medium">{task.title}</div>
+                    {task.goal && (
+                      <div className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                        {task.goal}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="min-w-[100px]">
+                    <Badge variant="outline" className={getStatusColor(task.status)}>
+                      {getStatusLabel(task.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell min-w-[100px]">
+                    <div className="flex items-center gap-1 text-sm">
+                      <User className="h-3 w-3 text-muted-foreground" />
+                      <span>{task.owner}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="min-w-[60px]">
+                    <Badge className={getPriorityColor(task.priority)}>
+                      {task.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell min-w-[120px]">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{new Date(task.updated).toLocaleDateString()}</span>
+                    </div>
+                  </TableCell>
+                  {!projectSlug && (
+                    <TableCell className="hidden md:table-cell min-w-[150px]">
+                      <Link
+                        href={`/projects/${task.project}`}
+                        className="text-primary hover:underline flex items-center gap-1 text-sm"
+                      >
+                        {task.project}
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </TableCell>
+                  )}
+                  <TableCell className="min-w-[100px]">
+                    {onViewOutputs && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onViewOutputs(task)}
+                        className="hover:bg-primary hover:text-primary-foreground min-h-[44px] min-w-[44px]"
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        <span className="hidden sm:inline">Outputs</span>
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

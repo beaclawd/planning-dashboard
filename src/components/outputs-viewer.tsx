@@ -5,6 +5,11 @@ import { Download, FileText } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeSlug from 'rehype-slug';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
+import remarkGfm from 'remark-gfm';
+import 'highlight.js/styles/github-dark.css';
 
 interface OutputsViewerProps {
   outputs: Output[];
@@ -105,40 +110,48 @@ export function OutputsViewer({ outputs, taskId }: OutputsViewerProps) {
 
       {/* Preview modal */}
       {previewFile && (
-        <Card className="fixed inset-4 z-50 max-w-4xl max-h-[80vh] overflow-auto bg-background">
-          <CardHeader className="border-b sticky top-0 bg-background z-10">
-            <div className="flex items-center justify-between">
-              <CardTitle>Preview</CardTitle>
-              <button
-                onClick={() => setPreviewFile(null)}
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                ✕ Close
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 overflow-x-auto">
-            {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Loading preview...
+        <>
+          <Card className="fixed inset-x-4 inset-y-8 sm:inset-8 md:inset-16 z-50 max-w-4xl max-h-[calc(100vh-4rem)] sm:max-h-[calc(100vh-8rem)] md:max-h-[calc(100vh-8rem)] overflow-auto bg-background m-auto rounded-lg shadow-2xl">
+            <CardHeader className="border-b sticky top-0 bg-background z-10 px-4 py-3 sm:px-6 sm:py-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base sm:text-lg">Preview</CardTitle>
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="text-sm text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
+                  ✕ Close
+                </button>
               </div>
-            ) : (
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                  {previewFile}
-                </ReactMarkdown>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 overflow-x-auto">
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading preview...
+                </div>
+              ) : (
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[
+                      rehypeRaw,
+                      rehypeHighlight,
+                      rehypeSlug,
+                      rehypeAutolinkHeadings,
+                    ]}
+                  >
+                    {previewFile}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Backdrop */}
-      {previewFile && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40"
-          onClick={() => setPreviewFile(null)}
-        />
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setPreviewFile(null)}
+          />
+        </>
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import { Project } from '@/lib/types';
 import { ProjectCard } from '@/components/project-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Search, Loader2, RefreshCw } from 'lucide-react';
 
 export default function Home() {
@@ -117,24 +118,27 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Planning Dashboard</h1>
-              <p className="text-lg text-muted-foreground">
+              <h1 className="text-2xl sm:text-4xl font-bold mb-2">Planning Dashboard</h1>
+              <p className="text-base sm:text-lg text-muted-foreground">
                 Multi-agent workflow planning dashboard
               </p>
             </div>
-            <Button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-            >
-              {refreshing ? (
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+              >
+                {refreshing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Refreshing...
+                  <span className="hidden sm:inline">Refreshing...</span>
+                  <span className="sm:hidden">Refresh</span>
                 </>
               ) : (
                 <>
@@ -152,7 +156,7 @@ export default function Home() {
           )}
 
           <div className="flex items-center gap-2 max-w-md">
-            <Search className="h-5 w-5 text-muted-foreground" />
+            <Search className="h-5 w-5 text-muted-foreground shrink-0" />
             <Input
               type="text"
               placeholder="Search projects..."
@@ -162,6 +166,7 @@ export default function Home() {
             />
           </div>
         </div>
+        </div>
 
         {filteredProjects.length === 0 ? (
           <div className="text-center py-12">
@@ -170,7 +175,7 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredProjects.map((project) => (
               <ProjectCard key={project.slug} project={project} />
             ))}

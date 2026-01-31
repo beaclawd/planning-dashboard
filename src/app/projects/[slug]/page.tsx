@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Loader2, CheckCircle2, Clock, User } from 'lucide-react';
 import Link from 'next/link';
 import { OutputsViewer } from '@/components/outputs-viewer';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -99,9 +100,9 @@ export default function ProjectDetailPage() {
             </Link>
 
             <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h1 className="text-3xl font-bold mb-2 capitalize">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <h1 className="text-2xl sm:text-3xl font-bold mb-2 capitalize">
                     {projectSlug.replace(/-/g, ' ')}
                   </h1>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -109,9 +110,12 @@ export default function ProjectDetailPage() {
                     <span>{completedTasks} completed</span>
                   </div>
                 </div>
-                <Badge variant="outline" className="bg-green-500/10 text-green-500">
-                  {progress}% Complete
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <ThemeToggle />
+                  <Badge variant="outline" className="bg-green-500/10 text-green-500">
+                    {progress}% Complete
+                  </Badge>
+                </div>
               </div>
             </div>
 
