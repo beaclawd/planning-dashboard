@@ -178,24 +178,43 @@ export function parseOutput(outputPath: string): Output | null {
   }
 
   const content = fs.readFileSync(outputPath, 'utf-8');
-  const match = content.match(/^# (.*): (.*)$/m);
+  const filename = path.basename(outputPath, path.extname(outputPath));
 
-  if (!match) {
-    console.warn(`Invalid output file format: ${outputPath}`);
+  // Extract title from first heading (supports both "# Title" and "# ID: Title" formats)
+  const headingMatch = content.match(/^# (.*?)(?::\s+(.*))?$/m);
+  if (!headingMatch) {
+    console.warn(`Invalid output file format (no heading): ${outputPath}`);
     return null;
   }
 
-  const [, id, title] = match;
-  const projectPath = path.dirname(path.dirname(outputPath));
+  // If format is "# ID: Title", use ID from heading; otherwise use filename as ID
+  let id: string;
+  let title: string;
+  if (headingMatch[2]) {
+    // "# ID: Title" format
+    id = headingMatch[1];
+    title = headingMatch[2];
+  } else {
+    // "# Title" format
+    id = filename;
+    title = headingMatch[1];
+  }
+
+  const projectPath = path.dirname(path.dirname(path.dirname(outputPath)));
   const project = path.basename(projectPath);
 
-  const metaMatch = content.match(/^- Output Type:\s*(.*)$/m);
-  const outputType = metaMatch ? metaMatch[1] : 'unknown';
-  const taskMatch = content.match(/^- Task ID:\s*(.*)$/m);
-  const taskId = taskMatch ? taskMatch[1] : undefined;
+  // Extract task ID from parent directory (e.g., outputs/T-001/file.md -> T-001)
+  const outputDir = path.dirname(outputPath);
+  const taskDir = path.basename(outputDir);
+  const taskId = taskDir.match(/^T-\d+$/) ? taskDir : undefined;
 
-  const lastModifiedMatch = content.match(/^- (Last|last) Modified:\s*(.*)$/m);
-  const lastModified = lastModifiedMatch ? lastModifiedMatch[2] : new Date().toISOString();
+  // Determine output type from file extension or content
+  const ext = path.extname(outputPath).toLowerCase();
+  const outputType = ext === '.md' ? 'markdown' : ext.replace('.', '');
+
+  // Use file modification time for lastModified
+  const stats = fs.statSync(outputPath);
+  const lastModified = stats.mtime.toISOString();
 
   return {
     id,
@@ -203,7 +222,7 @@ export function parseOutput(outputPath: string): Output | null {
     project,
     task: taskId,
     outputType,
-    content: content.substring(content.indexOf('\n\n') + 2), // Get content after metadata
+    content: content.substring(content.indexOf('\n\n') + 2) || content, // Get content after first heading
     path: outputPath,
     lastModified,
   };
